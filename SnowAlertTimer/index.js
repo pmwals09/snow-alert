@@ -25,6 +25,10 @@ module.exports = async function (context, _myTimer) {
       name: "Sunday River",
       zipCode: "04261",
     },
+    {
+      name: "Killington",
+      zipCode: "05751",
+    },
   ];
   const googleKey = process.env.GOOGLE_API_KEY;
   const openWeatherKey = process.env.OPEN_WEATHER_API_KEY;
@@ -45,21 +49,24 @@ module.exports = async function (context, _myTimer) {
 
   const mountainData = MOUNTAINS.map((ea, i) => ({ ...ea, location: googleRes[i], snowDays: snowDays[i] }));
 
-  const message = mountainData
-    .filter((mountain) => mountain.snowDays.length)
-    .map(
-      (mountain) =>
-        `Snow expected at ${mountain.name} on ${mountain.snowDays
-          .map((day) => day.toLocaleDateString("en-US"))
-          .join(", ")}`
-    )
-    .join("\n");
-  Object.keys(process.env)
-    .filter((key) => key.startsWith("SENDNUM"))
-    .forEach((key) => {
-      const twMessage = { from: process.env.TWILIO_NUMBER, body: message, to: process.env[key] };
-      twClient.messages.create(twMessage).then((message) => context.log(message.sid));
-    });
+  const hasSnowDays = mountainData.filter((mountain) => Boolean(mountain.snowDays.length));
+  let message = "";
+  if (hasSnowDays.length > 0) {
+    message = "Snow expected at:\n";
+
+    message += hasSnowDays
+      .map(
+        (mountain) =>
+          `${mountain.name} on ${mountain.snowDays.map((day) => day.toLocaleDateString("en-US")).join(", ")}`
+      )
+      .join("\n");
+    Object.keys(process.env)
+      .filter((key) => key.startsWith("SENDNUM"))
+      .forEach((key) => {
+        const twMessage = { from: process.env.TWILIO_NUMBER, body: message, to: process.env[key] };
+        twClient.messages.create(twMessage).then((message) => context.log(message.sid));
+      });
+  }
 
   context.res = {
     body: message,
